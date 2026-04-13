@@ -1,8 +1,20 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+let aiClient: GoogleGenAI | null = null;
+
+function getAI(): GoogleGenAI {
+  if (!aiClient) {
+    const key = process.env.GEMINI_API_KEY;
+    if (!key) {
+      console.warn("GEMINI_API_KEY is missing. AI features will not work.");
+    }
+    aiClient = new GoogleGenAI({ apiKey: key || "dummy-key" });
+  }
+  return aiClient;
+}
 
 export async function generateSecurePassword(requirements: string): Promise<string> {
+  const ai = getAI();
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
     contents: `Generate a highly secure, memorable password or passphrase based on these requirements: ${requirements}. 
@@ -15,6 +27,7 @@ export async function generateSecurePassword(requirements: string): Promise<stri
 }
 
 export async function analyzePasswordStrength(password: string): Promise<{ score: number; feedback: string; vulnerabilities: string[] }> {
+  const ai = getAI();
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
     contents: `Analyze the strength of the following password: "${password}". 
