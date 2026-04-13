@@ -1,14 +1,16 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, onAuthStateChanged, updateProfile } from 'firebase/auth';
-import { auth, signInWithGoogle, logOut, signInWithEmail as firebaseSignInWithEmail, signUpWithEmail as firebaseSignUpWithEmail } from './firebase';
+import { auth, signInWithGoogle, signInWithApple as firebaseSignInWithApple, logOut, signInWithEmail as firebaseSignInWithEmail, signUpWithEmail as firebaseSignUpWithEmail, resetPassword as firebaseResetPassword } from './firebase';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   signIn: () => Promise<void>;
+  signInWithApple: () => Promise<void>;
   signInWithEmail: (e: string, p: string) => Promise<void>;
-  signUpWithEmail: (e: string, p: string) => Promise<void>;
+  signUpWithEmail: (e: string, p: string, name: string) => Promise<void>;
   updateUserProfile: (displayName: string) => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -30,12 +32,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await signInWithGoogle();
   };
 
+  const signInWithApple = async () => {
+    await firebaseSignInWithApple();
+  };
+
   const signInWithEmail = async (e: string, p: string) => {
     await firebaseSignInWithEmail(e, p);
   };
 
-  const signUpWithEmail = async (e: string, p: string) => {
-    await firebaseSignUpWithEmail(e, p);
+  const signUpWithEmail = async (e: string, p: string, name: string) => {
+    const user = await firebaseSignUpWithEmail(e, p);
+    await updateProfile(user, { displayName: name });
+    setUser({ ...user, displayName: name } as User);
   };
 
   const updateUserProfile = async (displayName: string) => {
@@ -45,12 +53,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const resetPassword = async (email: string) => {
+    await firebaseResetPassword(email);
+  };
+
   const signOut = async () => {
     await logOut();
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signInWithEmail, signUpWithEmail, updateUserProfile, signOut }}>
+    <AuthContext.Provider value={{ user, loading, signIn, signInWithApple, signInWithEmail, signUpWithEmail, updateUserProfile, resetPassword, signOut }}>
       {children}
     </AuthContext.Provider>
   );
