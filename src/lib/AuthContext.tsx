@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, onAuthStateChanged, updateProfile } from 'firebase/auth';
-import { auth, signInWithGoogle, signInWithApple as firebaseSignInWithApple, logOut, signInWithEmail as firebaseSignInWithEmail, signUpWithEmail as firebaseSignUpWithEmail, resetPassword as firebaseResetPassword } from './firebase';
+import { auth, signInWithGoogle, signInWithApple as firebaseSignInWithApple, logOut, signInWithEmail as firebaseSignInWithEmail, signUpWithEmail as firebaseSignUpWithEmail, resetPassword as firebaseResetPassword, deleteAccount as firebaseDeleteAccount } from './firebase';
 
 interface AuthContextType {
   user: User | null;
@@ -12,6 +12,7 @@ interface AuthContextType {
   updateUserProfile: (displayName: string) => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   signOut: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -61,8 +62,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await logOut();
   };
 
+  const deleteAccount = async () => {
+    await firebaseDeleteAccount();
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signInWithApple, signInWithEmail, signUpWithEmail, updateUserProfile, resetPassword, signOut }}>
+    <AuthContext.Provider value={{ user, loading, signIn, signInWithApple, signInWithEmail, signUpWithEmail, updateUserProfile, resetPassword, signOut, deleteAccount }}>
       {children}
     </AuthContext.Provider>
   );

@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, OAuthProvider, signInWithPopup, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider, OAuthProvider, signInWithPopup, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, deleteUser } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
@@ -65,6 +65,17 @@ export const logOut = async () => {
   } catch (error) {
     console.error("Error signing out", error);
     throw error;
+  }
+};
+
+export const deleteAccount = async () => {
+  if (auth.currentUser) {
+    try {
+      await deleteUser(auth.currentUser);
+    } catch (error) {
+      console.error("Error deleting account", error);
+      throw error;
+    }
   }
 };
 

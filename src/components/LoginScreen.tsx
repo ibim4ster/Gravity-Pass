@@ -4,7 +4,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { Orbit, ArrowLeft, CheckCircle2, XCircle } from 'lucide-react';
+import { Orbit, ArrowLeft, CheckCircle2, XCircle, Eye, EyeOff } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 type ViewState = 'login' | 'register' | 'forgot';
@@ -17,6 +17,8 @@ export function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -130,7 +132,7 @@ export function LoginScreen() {
             {view === 'forgot' && 'Reset Password'}
           </CardTitle>
           <CardDescription>
-            {view === 'login' && 'Sign in to access your secure Zero-Knowledge vault.'}
+            {view === 'login' && 'Sign in to access your secure GravityPass vault.'}
             {view === 'register' && 'Sign up to start securing your passwords with Gravity-Pass.'}
             {view === 'forgot' && 'Enter your email to receive a password reset link.'}
           </CardDescription>
@@ -166,7 +168,12 @@ export function LoginScreen() {
                       Forgot password?
                     </button>
                   </div>
-                  <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required placeholder="••••••••" />
+                  <div className="relative">
+                    <Input id="password" type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} required placeholder="••••••••" className="pr-10" />
+                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-2.5 text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300">
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
                 </div>
                 <Button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white" disabled={loading}>
                   {loading ? 'Signing in...' : 'Sign In'}
@@ -209,7 +216,12 @@ export function LoginScreen() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="reg-password">Password</Label>
-                <Input id="reg-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required placeholder="••••••••" />
+                <div className="relative">
+                  <Input id="reg-password" type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} required placeholder="••••••••" className="pr-10" />
+                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-2.5 text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300">
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
                 {password.length > 0 && (
                   <div className="flex gap-1 mt-2">
                     {[25, 50, 75, 100].map((threshold) => (
@@ -228,7 +240,12 @@ export function LoginScreen() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="reg-confirm">Confirm Password</Label>
-                <Input id="reg-confirm" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required placeholder="••••••••" />
+                <div className="relative">
+                  <Input id="reg-confirm" type={showConfirmPassword ? "text" : "password"} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required placeholder="••••••••" className="pr-10" />
+                  <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-3 top-2.5 text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300">
+                    {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
               <Button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white" disabled={loading}>
                 {loading ? 'Creating account...' : 'Create Account'}

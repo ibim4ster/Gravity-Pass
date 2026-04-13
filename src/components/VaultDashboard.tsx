@@ -10,12 +10,12 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { Card, CardContent } from './ui/card';
-import { Plus, LogOut, Orbit, Key, Copy, Trash2, Eye, EyeOff, Sparkles, Activity, Search, Sun, Moon, UserCircle, ShieldAlert } from 'lucide-react';
+import { Plus, LogOut, Orbit, Key, Copy, Trash2, Eye, EyeOff, Sparkles, Activity, Search, Sun, Moon, UserCircle, ShieldAlert, Edit2, Download, Upload, AlertTriangle } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useTheme } from './ThemeProvider';
 
 export function VaultDashboard() {
-  const { user, signOut, updateUserProfile } = useAuth();
+  const { user, signOut, updateUserProfile, deleteAccount } = useAuth();
   const { masterKey, lockVault } = useCrypto();
   const { theme, setTheme } = useTheme();
   const [entries, setEntries] = useState<any[]>([]);
@@ -30,6 +30,7 @@ export function VaultDashboard() {
 
   // New Entry State
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -90,6 +91,43 @@ export function VaultDashboard() {
     }
   };
 
+  const handleDeleteAccount = async () => {
+    if (!confirm("Are you sure you want to delete your account? This action is irreversible and all your passwords will be lost forever.")) return;
+    try {
+      // Delete all vault entries
+      for (const entry of entries) {
+        await deleteDoc(doc(db, `users/${user?.uid}/vault`, entry.id));
+      }
+      // Delete user doc
+      await deleteDoc(doc(db, 'users', user!.uid));
+      // Delete auth user
+      await deleteAccount();
+    } catch (e: any) {
+      if (e.code === 'auth/requires-recent-login') {
+        alert("Please log out and log back in to delete your account.");
+      } else {
+        console.error("Failed to delete account", e);
+        alert("Failed to delete account. Please try again.");
+      }
+    }
+  };
+
+  const openEdit = (entry: any) => {
+    setEditingId(entry.id);
+    setTitle(entry.title);
+    setUsername(entry.username);
+    setPassword(entry.password);
+    setWebsite(entry.website || '');
+    setNotes(entry.notes || '');
+    setAnalysis(null);
+    setIsAddOpen(true);
+  };
+
+  const resetForm = () => {
+    setEditingId(null);
+    setTitle(''); setUsername(''); setPassword(''); setWebsite(''); setNotes(''); setAnalysis(null);
+  };
+
   const handleSaveEntry = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !masterKey) return;
@@ -99,20 +137,20 @@ export function VaultDashboard() {
     
     try {
       const { ciphertext, iv } = await encryptData(masterKey, jsonStr);
-      const entryId = crypto.randomUUID();
+      const entryId = editingId || crypto.randomUUID();
       
       await setDoc(doc(db, `users/${user.uid}/vault`, entryId), {
         uid: user.uid,
         encryptedData: ciphertext,
         iv: iv,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      });
+        updatedAt: new Date(),
+        ...(editingId ? {} : { createdAt: new Date() })
+      }, { merge: true });
       
       setIsAddOpen(false);
-      setTitle(''); setUsername(''); setPassword(''); setWebsite(''); setNotes(''); setAnalysis(null);
+      resetForm();
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, `users/${user.uid}/vault`);
+      handleFirestoreError(error, editingId ? OperationType.UPDATE : OperationType.CREATE, `users/${user.uid}/vault`);
     }
   };
 
@@ -155,6 +193,104 @@ export function VaultDashboard() {
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
+  };
+
+  const exportCSV = () => {
+    const headers = ['title', 'username', 'password', 'website', 'notes'];
+    const rows = entries.map(e => [e.title || '', e.username || '', e.password || '', e.website || '', e.notes || '']);
+    const csvContent = [headers.join(','), ...rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'gravity-pass-export.csv';
+    a.click();
+  };
+
+  const downloadTemplate = () => {
+    const headers = ['title', 'username', 'password', 'website', 'notes'];
+    const csvContent = headers.join(',') + '\n"Example Title","user@example.com","Password123!","https://example.com","Some notes"';
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'gravity-pass-template.csv';
+    a.click();
+  };
+
+  const importCSV = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user || !masterKey) return;
+    
+    try {
+      const text = await file.text();
+      const lines = text.split('\n').filter(l => l.trim().length > 0);
+      if (lines.length < 2) {
+        alert("File is empty or missing data rows.");
+        return;
+      }
+      
+      const headers = lines[0].toLowerCase().split(',').map(h => h.trim().replace(/"/g, ''));
+      const expectedHeaders = ['title', 'username', 'password', 'website', 'notes'];
+      
+      const hasAllHeaders = expectedHeaders.every(h => headers.includes(h));
+      if (!hasAllHeaders) {
+        alert(`Invalid CSV format. Expected headers: ${expectedHeaders.join(', ')}`);
+        return;
+      }
+
+      let importedCount = 0;
+      for (let i = 1; i < lines.length; i++) {
+        // Simple CSV parser for this specific format
+        const row = lines[i];
+        const values = [];
+        let inQuotes = false;
+        let val = '';
+        for (let j = 0; j < row.length; j++) {
+          const char = row[j];
+          if (char === '"') {
+            if (inQuotes && row[j+1] === '"') {
+              val += '"';
+              j++;
+            } else {
+              inQuotes = !inQuotes;
+            }
+          } else if (char === ',' && !inQuotes) {
+            values.push(val);
+            val = '';
+          } else {
+            val += char;
+          }
+        }
+        values.push(val);
+
+        const entry: any = {};
+        headers.forEach((h, index) => {
+          entry[h] = values[index] || '';
+        });
+
+        if (entry.title && entry.password) {
+          const jsonStr = JSON.stringify(entry);
+          const { ciphertext, iv } = await encryptData(masterKey, jsonStr);
+          const entryId = crypto.randomUUID();
+          await setDoc(doc(db, `users/${user.uid}/vault`, entryId), {
+            uid: user.uid,
+            encryptedData: ciphertext,
+            iv: iv,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          });
+          importedCount++;
+        }
+      }
+      alert(`Successfully imported ${importedCount} entries.`);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to parse CSV file. Please ensure it matches the template.");
+    }
+    
+    // Reset file input
+    e.target.value = '';
   };
 
   const filteredEntries = entries.filter(e => 
@@ -223,11 +359,16 @@ export function VaultDashboard() {
                     <Label>Display Name</Label>
                     <Input value={displayName} onChange={e => setDisplayName(e.target.value)} placeholder="Enter your name" />
                   </div>
-                  <div className="pt-4 flex justify-end gap-2">
-                    <Button type="button" variant="ghost" onClick={() => setIsProfileOpen(false)}>Cancel</Button>
-                    <Button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white" disabled={profileLoading}>
-                      {profileLoading ? 'Saving...' : 'Save Changes'}
+                  <div className="pt-4 flex justify-between items-center border-t border-zinc-200 dark:border-zinc-800 mt-6">
+                    <Button type="button" variant="destructive" onClick={handleDeleteAccount} className="bg-red-600 hover:bg-red-700 text-white">
+                      <AlertTriangle className="w-4 h-4 mr-2" /> Delete Account
                     </Button>
+                    <div className="flex gap-2">
+                      <Button type="button" variant="ghost" onClick={() => setIsProfileOpen(false)}>Cancel</Button>
+                      <Button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white" disabled={profileLoading}>
+                        {profileLoading ? 'Saving...' : 'Save Changes'}
+                      </Button>
+                    </div>
                   </div>
                 </form>
               </DialogContent>
@@ -236,7 +377,10 @@ export function VaultDashboard() {
             <Button variant="outline" size="icon" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
               {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </Button>
-            <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
+            <Dialog open={isAddOpen} onOpenChange={(open) => {
+              setIsAddOpen(open);
+              if (!open) resetForm();
+            }}>
               <DialogTrigger asChild>
                 <Button className="bg-indigo-600 hover:bg-indigo-700 text-white dark:bg-indigo-600 dark:hover:bg-indigo-700 gap-2">
                   <Plus className="w-4 h-4" /> Add
@@ -244,7 +388,7 @@ export function VaultDashboard() {
               </DialogTrigger>
               <DialogContent className="sm:max-w-[500px]">
                 <DialogHeader>
-                  <DialogTitle>Add New Password</DialogTitle>
+                  <DialogTitle>{editingId ? 'Edit Password' : 'Add New Password'}</DialogTitle>
                 </DialogHeader>
                 <form onSubmit={handleSaveEntry} className="space-y-4 mt-4">
                   <div className="grid grid-cols-2 gap-4">
@@ -295,7 +439,7 @@ export function VaultDashboard() {
                   )}
 
                   <div className="pt-4 flex justify-end gap-2">
-                    <Button type="button" variant="ghost" onClick={() => setIsAddOpen(false)}>Cancel</Button>
+                    <Button type="button" variant="ghost" onClick={() => { setIsAddOpen(false); resetForm(); }}>Cancel</Button>
                     <Button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white dark:bg-indigo-600 dark:hover:bg-indigo-700">Save Encrypted</Button>
                   </div>
                 </form>
@@ -306,6 +450,32 @@ export function VaultDashboard() {
             </Button>
           </div>
         </header>
+
+        <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-4">
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={exportCSV}>
+              <Download className="w-4 h-4 mr-2" /> Export CSV
+            </Button>
+            <Button variant="outline" size="sm" onClick={downloadTemplate}>
+              Template
+            </Button>
+            <div className="relative">
+              <input 
+                type="file" 
+                accept=".csv" 
+                onChange={importCSV} 
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                title="Import CSV"
+              />
+              <Button variant="outline" size="sm" className="pointer-events-none">
+                <Upload className="w-4 h-4 mr-2" /> Import CSV
+              </Button>
+            </div>
+          </div>
+          <div className="text-sm text-zinc-500 dark:text-zinc-400">
+            {filteredEntries.length} {filteredEntries.length === 1 ? 'entry' : 'entries'}
+          </div>
+        </div>
 
         {loading ? (
           <div className="text-center text-zinc-500 py-12">Decrypting vault...</div>
@@ -344,6 +514,9 @@ export function VaultDashboard() {
                         {showPasswordId === entry.id ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
                     </div>
+                    <Button variant="outline" size="icon" onClick={() => openEdit(entry)} className="hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-indigo-900/50 dark:hover:text-indigo-400">
+                      <Edit2 className="w-4 h-4" />
+                    </Button>
                     <Button variant="outline" size="icon" onClick={() => copyToClipboard(entry.password)}>
                       <Copy className="w-4 h-4" />
                     </Button>
