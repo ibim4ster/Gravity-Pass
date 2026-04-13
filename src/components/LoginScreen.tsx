@@ -9,7 +9,11 @@ import { cn } from '../lib/utils';
 
 type ViewState = 'login' | 'register' | 'forgot';
 
-export function LoginScreen() {
+interface LoginScreenProps {
+  onBack?: () => void;
+}
+
+export function LoginScreen({ onBack }: LoginScreenProps) {
   const { signIn, signInWithApple, signInWithEmail, signUpWithEmail, resetPassword } = useAuth();
   const [view, setView] = useState<ViewState>('login');
   
@@ -115,13 +119,22 @@ export function LoginScreen() {
     <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-zinc-950 p-4 transition-colors duration-300">
       <Card className="w-full max-w-md shadow-xl">
         <CardHeader className="text-center space-y-4 relative">
-          {view !== 'login' && (
+          {view !== 'login' ? (
             <button 
               onClick={() => { setView('login'); setError(''); setSuccessMsg(''); }}
               className="absolute left-6 top-6 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
+          ) : (
+            onBack && (
+              <button 
+                onClick={onBack}
+                className="absolute left-6 top-6 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </button>
+            )
           )}
           <div className="mx-auto bg-zinc-100 dark:bg-zinc-800 p-3 rounded-full w-fit">
             <Orbit className="w-8 h-8 text-indigo-600 dark:text-indigo-400" />
