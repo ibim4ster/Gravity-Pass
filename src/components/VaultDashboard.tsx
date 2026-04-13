@@ -92,6 +92,10 @@ export function VaultDashboard() {
   };
 
   const handleDeleteAccount = async () => {
+    if (user?.email === 'admin@admin.com') {
+      alert("This is a demo account and cannot be deleted.");
+      return;
+    }
     if (!confirm("Are you sure you want to delete your account? This action is irreversible and all your passwords will be lost forever.")) return;
     try {
       // Delete all vault entries

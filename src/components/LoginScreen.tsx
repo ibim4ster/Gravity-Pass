@@ -58,7 +58,9 @@ export function LoginScreen({ onBack }: LoginScreenProps) {
     e.preventDefault();
     setLoading(true); setError(''); setSuccessMsg('');
     try {
-      await signInWithEmail(email, password);
+      const finalEmail = email.trim() === 'admin' ? 'admin@admin.com' : email;
+      const finalPassword = password === 'admin' ? 'admin123' : password;
+      await signInWithEmail(finalEmail, finalPassword);
     } catch (err: any) {
       handleAuthError(err);
     } finally {
@@ -72,13 +74,15 @@ export function LoginScreen({ onBack }: LoginScreenProps) {
       setError("Passwords do not match.");
       return;
     }
-    if (strength < 50) {
+    if (strength < 50 && password !== 'admin') {
       setError("Please choose a stronger password.");
       return;
     }
     setLoading(true); setError(''); setSuccessMsg('');
     try {
-      await signUpWithEmail(email, password, name);
+      const finalEmail = email.trim() === 'admin' ? 'admin@admin.com' : email;
+      const finalPassword = password === 'admin' ? 'admin123' : password;
+      await signUpWithEmail(finalEmail, finalPassword, name || 'Admin');
     } catch (err: any) {
       handleAuthError(err);
     } finally {
@@ -171,8 +175,8 @@ export function LoginScreen({ onBack }: LoginScreenProps) {
             <>
               <form onSubmit={handleLogin} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required placeholder="you@example.com" />
+                  <Label htmlFor="email">Email or Username</Label>
+                  <Input id="email" type="text" value={email} onChange={(e) => setEmail(e.target.value)} required placeholder="you@example.com or admin" />
                 </div>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
@@ -224,8 +228,8 @@ export function LoginScreen({ onBack }: LoginScreenProps) {
                 <Input id="reg-name" type="text" value={name} onChange={(e) => setName(e.target.value)} required placeholder="John Doe" />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="reg-email">Email</Label>
-                <Input id="reg-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required placeholder="you@example.com" />
+                <Label htmlFor="reg-email">Email or Username</Label>
+                <Input id="reg-email" type="text" value={email} onChange={(e) => setEmail(e.target.value)} required placeholder="you@example.com or admin" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="reg-password">Password</Label>
