@@ -1,0 +1,110 @@
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: users
+// Document ID: {userId}
+// Fields:
+//   - uid: string (required)
+//   - salt: string (required)
+//   - createdAt: timestamp (required)
+//
+// Collection: users/{userId}/vault
+// Document ID: {entryId}
+// Fields:
+//   - uid: string (required)
+//   - encryptedData: string (required, < 10000 chars)
+//   - iv: string (required, < 100 chars)
+//   - createdAt: timestamp (required)
+//   - updatedAt: timestamp (required)
+//
+// ===============================================================
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.uid;
+    }
+    
+    function uidUnchanged() {
+      return !('uid' in request.resource.data) || request.resource.data.uid == request.auth.uid;
+    }
+    
+    function uidNotModified() {
+      return !('uid' in request.resource.data) || request.resource.data.uid == resource.data.uid;
+    }
+    
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+    
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUserConfig(data) {
+      return hasOnlyAllowedFields(['uid', 'salt', 'createdAt']) &&
+             data.uid is string && data.uid.size() > 0 && data.uid.size() < 100 &&
+             data.salt is string && data.salt.size() > 0 && data.salt.size() < 200 &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidVaultEntry(data) {
+      return hasOnlyAllowedFields(['uid', 'encryptedData', 'iv', 'createdAt', 'updatedAt']) &&
+             data.uid is string && data.uid.size() > 0 && data.uid.size() < 100 &&
+             data.encryptedData is string && data.encryptedData.size() > 0 && data.encryptedData.size() < 50000 &&
+             data.iv is string && data.iv.size() > 0 && data.iv.size() < 100 &&
+             data.createdAt is timestamp &&
+             data.updatedAt is timestamp;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && 
+                    hasRequiredFields(['uid', 'salt', 'createdAt']) &&
+                    isValidUserConfig(request.resource.data) && 
+                    uidUnchanged();
+      allow update: if isOwner(userId) && 
+                    isValidUserConfig(request.resource.data) && 
+                    uidNotModified() &&
+                    request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if isOwner(userId);
+
+      match /vault/{entryId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && 
+                      hasRequiredFields(['uid', 'encryptedData', 'iv', 'createdAt', 'updatedAt']) &&
+                      isValidVaultEntry(request.resource.data) && 
+                      uidUnchanged();
+        allow update: if isOwner(userId) && 
+                      isValidVaultEntry(request.resource.data) && 
+                      uidNotModified() &&
+                      request.resource.data.createdAt == resource.data.createdAt;
+        allow delete: if isOwner(userId);
+      }
+    }
+  }
+}

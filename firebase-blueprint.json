@@ -1,0 +1,65 @@
+{
+  "entities": {
+    "VaultEntry": {
+      "title": "Vault Entry",
+      "description": "An encrypted password entry in the user's vault.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "The user ID of the owner."
+        },
+        "encryptedData": {
+          "type": "string",
+          "description": "AES-256-GCM encrypted JSON containing title, username, password, website, and notes."
+        },
+        "iv": {
+          "type": "string",
+          "description": "Base64 encoded Initialization Vector used for encryption."
+        },
+        "createdAt": {
+          "type": "timestamp",
+          "description": "When the entry was created."
+        },
+        "updatedAt": {
+          "type": "timestamp",
+          "description": "When the entry was last updated."
+        }
+      },
+      "required": ["uid", "encryptedData", "iv", "createdAt", "updatedAt"]
+    },
+    "UserConfig": {
+      "title": "User Config",
+      "description": "User specific configuration, such as the salt for their master key.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "The user ID."
+        },
+        "salt": {
+          "type": "string",
+          "description": "Base64 encoded salt used for PBKDF2 key derivation."
+        },
+        "createdAt": {
+          "type": "timestamp"
+        }
+      },
+      "required": ["uid", "salt", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/UserConfig"
+      },
+      "description": "Stores user-specific configuration like the crypto salt."
+    },
+    "/users/{userId}/vault/{entryId}": {
+      "schema": {
+        "$ref": "#/entities/VaultEntry"
+      },
+      "description": "Stores the user's encrypted passwords."
+    }
+  }
+}

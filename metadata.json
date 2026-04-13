@@ -1,0 +1,5 @@
+{
+  "name": "Gravity-Pass",
+  "description": "A highly secure password manager with Zero-Knowledge architecture, AES-256 encryption, Biometric unlock, and AI-powered password analysis.",
+  "requestFramePermissions": []
+}
